@@ -30,6 +30,16 @@
       "priceJpy": 29700,
       "quantity": 1,
       "purchased": false
+    },
+    {
+      "id": "4b03b86a-ee23-4c9c-a9b7-815146b079ab",
+      "buyer": "曼曼",
+      "location": "FF14 FanFest",
+      "name": "ファイナルファンタジーXIV　スティックライト　＜モーグリ＞",
+      "image": "assets/4b03b86a-ee23-4c9c-a9b7-815146b079ab-ca9c4f2dfddda0d7.png",
+      "priceJpy": 4950,
+      "quantity": 1,
+      "purchased": false
     }
   ]
 }
