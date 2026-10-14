@@ -1,0 +1,18 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["site"],
+  "locale": "zh-TW",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Select/Listbox", "Form", "Scrollbar", "Toast", "CRUD"],
+  "ownership": { "Select/Listbox": "native" },
+  "requiredCommands": ["syntax", "unit", "worker"],
+  "commands": {
+    "syntax": "npm run check",
+    "unit": "npm test",
+    "worker": "npm run worker:check"
+  },
+  "evidence": {
+    "crudFullFlow": "VERIFICATION.md",
+    "failurePaths": "tests/worker.test.js"
+  }
+}

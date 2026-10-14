@@ -1,4 +1,4 @@
-import { ApiStore, validateData } from './core.js';
+import { ApiStore, validateData, buyerName, itemsForBuyer, buyerSummary } from './core.js';
 import { API_BASE_URL } from './config.js';
 const $ = id => document.getElementById(id);
 const yen = value => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(value);
@@ -24,31 +24,40 @@ async function prepareImage(file) {
   } finally { bitmap.close(); }
 }
 const params = new URLSearchParams(location.search);
+let buyerFilter = params.has('buyer') ? params.get('buyer') : null;
 let place = params.get('place') || '', filter = ['all', 'pending', 'done'].includes(params.get('filter')) ? params.get('filter') : 'all';
 document.querySelector(`input[value="${filter}"]`).checked = true;
 function message(text, error = false) { $('notice').textContent = error ? '' : text; $('error').textContent = error ? text : ''; $('error').hidden = !error;  }
-function stateUrl() { const q = new URLSearchParams(); if (place) q.set('place', place); if (filter !== 'all') q.set('filter', filter); history.replaceState(null, '', `${location.pathname}${q.size ? '?' + q : ''}`); }
-function lock(value) { busy = value; document.querySelectorAll('button, input').forEach(el => { el.disabled = value; }); $('list').setAttribute('aria-busy', String(value)); }
+function stateUrl() { const q = new URLSearchParams(); if (place) q.set('place', place); if (buyerFilter !== null) q.set('buyer', buyerFilter); if (filter !== 'all') q.set('filter', filter); history.replaceState(null, '', `${location.pathname}${q.size ? '?' + q : ''}`); }
+function lock(value) { busy = value; document.querySelectorAll('button, input, select').forEach(el => { el.disabled = value; }); $('list').setAttribute('aria-busy', String(value)); }
 function node(tag, text, cls) { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (cls) el.className = cls; return el; }
 function render() {
-  const places = [...new Set(data.items.map(i => i.location))]; if (place && !places.includes(place)) place = '';
-  const done = data.items.filter(i => i.purchased).length;
-  $('progress').textContent = `${done} / ${data.items.length}`;
-  $('total').textContent = yen(data.items.reduce((sum, i) => sum + i.priceJpy * i.quantity, 0));
-  $('bar').style.width = `${data.items.length ? done / data.items.length * 100 : 0}%`;
+  const buyers = [...new Set(data.items.map(buyerName))].sort((a, b) => a.localeCompare(b, 'zh-TW'));
+  if (buyerFilter !== null && !buyers.includes(buyerFilter)) { buyerFilter = null; stateUrl(); }
+  $('buyer-filter').replaceChildren();
+  for (const buyer of [null, ...buyers]) {
+    const option = node('option', buyer === null ? '全部購買人' : buyer || '未指定'); option.value = JSON.stringify(buyer); option.selected = buyerFilter === buyer; $('buyer-filter').append(option);
+  }
+  const selectedItems = itemsForBuyer(data.items, buyerFilter);
+  const places = [...new Set(selectedItems.map(i => i.location))]; if (place && !places.includes(place)) { place = ''; stateUrl(); }
+  const summary = buyerSummary(data.items, buyerFilter);
+  $('progress').textContent = `${summary.purchased} / ${summary.count}`;
+  $('total').textContent = yen(summary.totalJpy);
+  $('total-label').textContent = buyerFilter === null ? '清單總額' : `${buyerFilter || '未指定'}的清單總額`;
+  $('bar').style.width = `${summary.count ? summary.purchased / summary.count * 100 : 0}%`;
   $('tabs').replaceChildren();
   for (const location of ['', ...places]) {
     const button = node('button', location || '全部地點'); button.setAttribute('aria-pressed', String(place === location));
     button.addEventListener('click', () => { place = location; stateUrl(); render(); [...$('tabs').children].find(b => b.textContent === (location || '全部地點'))?.focus(); }); $('tabs').append(button);
   }
-  const items = data.items.filter(i => (!place || i.location === place) && (filter === 'all' || i.purchased === (filter === 'done')));
+  const items = selectedItems.filter(i => (!place || i.location === place) && (filter === 'all' || i.purchased === (filter === 'done')));
   $('list-title').textContent = place || '全部地點'; $('count').textContent = `${items.length} 個品項`;
   $('list').replaceChildren();
   if (!items.length) $('list').append(node('li', data.items.length ? '這個分類沒有符合的品項。試試其他篩選。' : '清單還是空的，新增第一個想買的品項吧。', 'empty'));
   for (const item of items) {
     const row = node('li', undefined, `item${item.purchased ? ' done' : ''}`);
     const image = node('img'); image.src = urls.get(item.image) || item.image; image.alt = item.name; image.loading = 'lazy'; image.addEventListener('error', () => { image.src = 'assets/placeholder.svg'; }, { once: true });
-    const info = node('div'); info.append(node('p', item.location), node('h3', item.name), node('p', `${yen(item.priceJpy)} × ${item.quantity} 件`), node('p', yen(item.priceJpy * item.quantity), 'amount'));
+    const info = node('div'); info.append(node('p', item.location), node('p', `購買人：${buyerName(item) || '未指定'}`, 'buyer-name'), node('h3', item.name), node('p', `${yen(item.priceJpy)} × ${item.quantity} 件`), node('p', yen(item.priceJpy * item.quantity), 'amount'));
     const label = node('label', undefined, 'check'); const checkbox = node('input'); checkbox.type = 'checkbox'; checkbox.checked = item.purchased; checkbox.disabled = busy; checkbox.setAttribute('aria-label', `${item.name}，${item.purchased ? '已購買' : '未購買'}`);
     checkbox.addEventListener('change', async () => {
       if (!store?.session) { checkbox.checked = item.purchased; $('connection').showModal(); return; }
@@ -77,6 +86,7 @@ async function load() {
   } catch (error) { message(error.message || '讀取失敗，請檢查網路後重試。', true); }
   finally { lock(false); syncConnection(); }
 }
+$('buyer-filter').addEventListener('change', event => { buyerFilter = JSON.parse(event.target.value); stateUrl(); render(); });
 $('filters').addEventListener('change', event => { filter = event.target.value; stateUrl(); render(); });
 $('connect').addEventListener('click', () => $('connection').showModal());
 $('retry').addEventListener('click', load);
@@ -94,7 +104,7 @@ $('connection-form').addEventListener('submit', async event => {
   finally { lock(false); syncConnection(); }
 });
 $('disconnect').addEventListener('click', () => { store = undefined; sha = undefined; $('password').value = ''; $('connection-error').textContent = ''; for (const url of urls.values()) URL.revokeObjectURL(url); urls.clear(); syncConnection(); $('connection').close(); void load(); });
-$('add').addEventListener('click', () => { if (!store?.session) { $('connection').showModal(); return; } draftId ||= crypto.randomUUID(); $('item-error').textContent = ''; $('editor').showModal(); });
+$('add').addEventListener('click', () => { if (!store?.session) { $('connection').showModal(); return; } draftId ||= crypto.randomUUID(); if (!$('buyer').value && buyerFilter) $('buyer').value = buyerFilter; $('item-error').textContent = ''; $('editor').showModal(); });
 $('image').addEventListener('change', async () => {
   if (preview) URL.revokeObjectURL(preview); $('preview').hidden = true;
   const file = $('image').files[0]; if (!file) return;
@@ -103,19 +113,19 @@ $('image').addEventListener('change', async () => {
 });
 $('item-form').addEventListener('submit', async event => {
   event.preventDefault(); if (!store?.session || busy) return;
-  const item = { id: draftId, location: $('location').value.trim(), name: $('name').value.trim(), image: 'assets/placeholder.svg', priceJpy: Number($('price').value), quantity: Number($('quantity').value), purchased: false };
-  const fields = ['location', 'name', 'price', 'quantity']; fields.forEach(id => { $(id).removeAttribute('aria-invalid'); $(id).setAttribute('aria-describedby', 'item-error'); });
-  const invalid = !item.location ? 'location' : !item.name ? 'name' : !$('price').value || !Number.isSafeInteger(item.priceJpy) || item.priceJpy < 0 ? 'price' : !Number.isSafeInteger(item.quantity) || item.quantity < 1 ? 'quantity' : null;
-  if (invalid) { $('item-error').textContent = '請填寫地點與品名；金額須為非負整數，數量至少 1。'; $(invalid).setAttribute('aria-invalid', 'true'); $(invalid).focus(); return; }
+  const item = { id: draftId, buyer: $('buyer').value.trim(), location: $('location').value.trim(), name: $('name').value.trim(), image: 'assets/placeholder.svg', priceJpy: Number($('price').value), quantity: Number($('quantity').value), purchased: false };
+  const fields = ['buyer', 'location', 'name', 'price', 'quantity']; fields.forEach(id => { $(id).removeAttribute('aria-invalid'); $(id).setAttribute('aria-describedby', 'item-error'); });
+  const invalid = !item.buyer ? 'buyer' : !item.location ? 'location' : !item.name ? 'name' : !$('price').value || !Number.isSafeInteger(item.priceJpy) || item.priceJpy < 0 ? 'price' : !Number.isSafeInteger(item.quantity) || item.quantity < 1 ? 'quantity' : null;
+  if (invalid) { $('item-error').textContent = '請填寫購買人、地點與品名；金額須為非負整數，數量至少 1。'; $(invalid).setAttribute('aria-invalid', 'true'); $(invalid).focus(); return; }
   lock(true); $('item-error').textContent = ''; message('正在儲存品項…');
   try {
     validateData({ ...data, items: [...data.items.filter(i => i.id !== item.id), item] });
     const image = $('image').files[0] ? await prepareImage($('image').files[0]) : undefined;
     const result = await store.create(item, image, sha); sha = result.sha; data = validateData(result.data); draftId = undefined;
-    $('editor').close(); $('item-form').reset(); $('preview').hidden = true; if (preview) URL.revokeObjectURL(preview); place = item.location; filter = 'all'; document.querySelector('input[value="all"]').checked = true; stateUrl(); render(); void hydrateImages(); message('品項已儲存。');
+    $('editor').close(); $('item-form').reset(); $('preview').hidden = true; if (preview) URL.revokeObjectURL(preview); buyerFilter = item.buyer; place = item.location; filter = 'all'; document.querySelector('input[value="all"]').checked = true; stateUrl(); render(); void hydrateImages(); message('品項已儲存。');
   } catch (error) { $('item-error').textContent = error.message || '儲存失敗，請重新讀取確認狀態。'; message('儲存未完成，輸入內容已保留。', true); }
   finally { lock(false); syncConnection(); }
 });
 for (const dialog of document.querySelectorAll('dialog')) dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
-window.addEventListener('beforeunload', event => { if (busy || ($('editor').open && ($('name').value || $('location').value))) { event.preventDefault(); event.returnValue = ''; } });
+window.addEventListener('beforeunload', event => { if (busy || ($('editor').open && ($('buyer').value || $('name').value || $('location').value))) { event.preventDefault(); event.returnValue = ''; } });
 void load();

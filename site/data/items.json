@@ -1,41 +1,4 @@
 {
   "version": 1,
-  "items": [
-    {
-      "id": "sample-1",
-      "location": "東京車站",
-      "name": "奶油夾心餅乾（範例）",
-      "image": "assets/placeholder.svg",
-      "priceJpy": 1200,
-      "quantity": 2,
-      "purchased": false
-    },
-    {
-      "id": "sample-2",
-      "location": "藥妝店",
-      "name": "蒸氣眼罩（範例）",
-      "image": "assets/placeholder.svg",
-      "priceJpy": 980,
-      "quantity": 3,
-      "purchased": false
-    },
-    {
-      "id": "sample-3",
-      "location": "東京車站",
-      "name": "草莓巧克力（範例）",
-      "image": "assets/placeholder.svg",
-      "priceJpy": 850,
-      "quantity": 1,
-      "purchased": true
-    },
-    {
-      "id": "c46b416f-3a7f-4145-bf93-9b0ac5aeca2d",
-      "location": "test",
-      "name": "test",
-      "image": "assets/placeholder.svg",
-      "priceJpy": 10,
-      "quantity": 1,
-      "purchased": false
-    }
-  ]
+  "items": []
 }

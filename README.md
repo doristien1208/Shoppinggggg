@@ -1,5 +1,5 @@
 # Shoppinggggg
-手機優先的一頁式代購清單，使用地點頁籤與未購買／已購買／全部篩選。
+手機優先的一頁式代購清單，使用購買人篩選、地點頁籤與未購買／已購買／全部篩選；上方統計依購買人計算。
 
 網站在 GitHub Pages；Cloudflare Worker 驗證朋友共用密碼並寫入 GitHub。資料為 `site/data/items.json`，圖片在 `site/assets/`，無資料庫。GitHub 權杖只存在後端 Secret。
 
@@ -21,6 +21,7 @@ npm run worker:check
   "version": 1,
   "items": [{
     "id": "unique-id",
+    "buyer": "Doris",
     "location": "東京車站",
     "name": "奶油夾心餅乾",
     "image": "assets/photo.jpg",
@@ -30,6 +31,6 @@ npm run worker:check
   }]
 }
 ```
-priceJpy 為日幣單價，數量至少 1；id 唯一。新增由網站產生 UUID。初始有三筆「範例」，可直接編輯 JSON 更換。
+priceJpy 為日幣單價，數量至少 1；id 唯一。新增由網站產生 UUID。清單初始為空。新增必填購買人；舊資料缺少 buyer 時顯示「未指定」。
 
 公開 repo 和 Pages 的清單與圖片可被讀取，密碼限制編輯。Session 期限 12 小時，不儲存原始密碼或 GitHub 權杖於瀏覽器。版本衝突需重新讀取；JSON 與圖片在同一個 commit 更新。適合小型朋友共用清單。

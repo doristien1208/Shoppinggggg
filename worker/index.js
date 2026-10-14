@@ -114,8 +114,8 @@ async function createItem(request, env) {
   let form, input;
   try { form = await new Response(await limitedBody(request, IMAGE_LIMIT + 16384), { headers: { 'Content-Type': request.headers.get('Content-Type') } }).formData(); input = JSON.parse(form.get('item')); }
   catch (error) { if (error instanceof HttpError) throw error; fail(400, '品項格式不正確。'); }
-  if (!input || !/^[a-f0-9-]{36}$/.test(input.id) || typeof input.location !== 'string' || typeof input.name !== 'string' || input.location.length > 80 || input.name.length > 160) fail(400, '請填寫有效的購買地點與品名。');
-  const item = { id: input.id, location: input.location.trim(), name: input.name.trim(), image: 'assets/placeholder.svg', priceJpy: input.priceJpy, quantity: input.quantity, purchased: false };
+  if (!input || !/^[a-f0-9-]{36}$/.test(input.id) || typeof input.buyer !== 'string' || !input.buyer.trim() || input.buyer.length > 80 || typeof input.location !== 'string' || typeof input.name !== 'string' || input.location.length > 80 || input.name.length > 160) fail(400, '請填寫有效的購買人、購買地點與品名。');
+  const item = { id: input.id, buyer: input.buyer.trim(), location: input.location.trim(), name: input.name.trim(), image: 'assets/placeholder.svg', priceJpy: input.priceJpy, quantity: input.quantity, purchased: false };
   try { validateData({ version: 1, items: [item] }); } catch { fail(400, '金額須為非負整數，數量至少 1，地點與品名不能空白。'); }
   const image = form.get('image') ? await readImage(form.get('image'), item.id) : undefined;
   if (image) item.image = image.path;
@@ -123,7 +123,7 @@ async function createItem(request, env) {
   const existing = current.data.items.find(i => i.id === item.id);
   // Same form ID + content makes retries safe if a previous response was lost.
   if (existing) {
-    if (['id','location','name','image','priceJpy','quantity'].every(key => existing[key] === item[key])) return current;
+    if (['id','buyer','location','name','image','priceJpy','quantity'].every(key => existing[key] === item[key])) return current;
     fail(409, '這個品項已存在，請重新讀取清單確認。');
   }
   verifySha(form.get('sha'), current);

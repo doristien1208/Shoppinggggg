@@ -5,10 +5,19 @@ export function validateData(data) {
   const ids = new Set();
   for (const item of data.items) {
     if (!item || typeof item.id !== 'string' || !item.id || ids.has(item.id) || typeof item.location !== 'string' || !item.location.trim() || typeof item.name !== 'string' || !item.name.trim() || !Number.isSafeInteger(item.priceJpy) || item.priceJpy < 0 || !Number.isSafeInteger(item.quantity) || item.quantity < 1 || !Number.isSafeInteger(item.priceJpy * item.quantity) || typeof item.purchased !== 'boolean' || typeof item.image !== 'string' || !/^assets\/[a-zA-Z0-9._-]+$/.test(item.image)) throw new Error('品項資料不正確：請檢查名稱、地點、整數金額、數量、圖片路徑與唯一 ID。');
+    if (item.buyer !== undefined && (typeof item.buyer !== 'string' || item.buyer.length > 80)) throw new Error('購買人須為 80 個字元以內的名稱。');
     ids.add(item.id);
   }
   if (!Number.isSafeInteger(data.items.reduce((sum, i) => sum + i.priceJpy * i.quantity, 0))) throw new Error('清單總額超過可計算範圍。');
   return data;
+}
+export const buyerName = item => (item.buyer ?? '').trim();
+export function itemsForBuyer(items, buyer) {
+  return buyer === null ? items : items.filter(item => buyerName(item) === buyer);
+}
+export function buyerSummary(items, buyer) {
+  const selected = itemsForBuyer(items, buyer);
+  return { count: selected.length, purchased: selected.filter(i => i.purchased).length, totalJpy: selected.reduce((sum, i) => sum + i.priceJpy * i.quantity, 0) };
 }
 export function encodeText(value) {
   const bytes = new TextEncoder().encode(value);

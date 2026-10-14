@@ -11,3 +11,9 @@
 - Frontend deployed successfully by GitHub Actions at https://doristien1208.github.io/Shoppinggggg/ with the public Worker URL configured.
 - Cloudflare Worker deployed with all three rate-limit bindings and the expected allowed origin. GITHUB_TOKEN and LIST_PASSWORD Secret metadata are present; values were not retrieved.
 - Live /health reports LIST_PASSWORD is shorter than the required 12 characters. User must update this Secret before authenticated reads/writes can be tested.
+
+## Buyer feature — 2026-10-14
+- Removed the three known sample IDs and the user’s test item ID from the live JSON; no other records targeted.
+- Added buyer input and native select filter. Summary counts and total include all items for the selected buyer, independently of location/purchase-state filters. Legacy missing buyer is unassigned.
+- 14 unit/API tests pass, including buyer total calculations, legacy compatibility, required buyer validation and persistence. Strict premium audit has 0 findings.
+- Browser fixture with mocked GitHub confirmed buyer filters, combined location/status filters, unassigned handling, prefilled/required create field, saved buyer and updated statistics after create/checkoff. Narrow 390px viewport has no horizontal content overflow. Fixture data was not written to production.

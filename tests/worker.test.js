@@ -68,9 +68,9 @@ test('concurrent branch update rejects final publish and preserves old data', as
 test('item + valid image share one commit; repeated create is idempotent', async () => {
   const session=await login(),mock=gitMock(),original=globalThis.fetch;globalThis.fetch=mock.fetcher;
   const id='a34f1474-64db-49c5-8121-5ffba2d6b1b4';
-  const makeForm=()=>{const form=new FormData();form.set('sha','head1');form.set('item',JSON.stringify({id,location:'大阪',name:'眼罩',priceJpy:900,quantity:2}));form.set('image',new File([Uint8Array.from([137,80,78,71,13,10,26,10,0])],'a.png',{type:'image/png'}));return form;};
+  const makeForm=()=>{const form=new FormData();form.set('sha','head1');form.set('item',JSON.stringify({id,buyer:'  Doris  ',location:'大阪',name:'眼罩',priceJpy:900,quantity:2}));form.set('image',new File([Uint8Array.from([137,80,78,71,13,10,26,10,0])],'a.png',{type:'image/png'}));return form;};
   try {
-    const response=await worker.fetch(request('/api/items',{method:'POST',session,body:makeForm()}),env);assert.equal(response.status,200);assert.equal(mock.data().items.length,2);
+    const response=await worker.fetch(request('/api/items',{method:'POST',session,body:makeForm()}),env);assert.equal(response.status,200);assert.equal(mock.data().items.length,2);assert.equal(mock.data().items[1].buyer,'Doris');
     const tree=mock.calls.find(c=>c.path==='git/trees').body.tree;assert.equal(tree.length,2);assert.equal(tree[1].sha,'image-blob');assert.ok(tree[1].path.startsWith('site/assets/'));
     const savedCommits=mock.calls.filter(c=>c.path==='git/commits').length;
     const retry=await worker.fetch(request('/api/items',{method:'POST',session,body:makeForm()}),env);assert.equal(retry.status,200);assert.equal(mock.data().items.length,2);assert.equal(mock.calls.filter(c=>c.path==='git/commits').length,savedCommits);
@@ -78,7 +78,19 @@ test('item + valid image share one commit; repeated create is idempotent', async
   }finally{globalThis.fetch=original;}
 });
 test('invalid uploads and traversal routes are rejected', async () => {
-  const session=await login();const form=new FormData();form.set('sha','head1');form.set('item',JSON.stringify({id:crypto.randomUUID(),location:'大阪',name:'眼罩',priceJpy:1,quantity:1}));form.set('image',new File(['<svg></svg>'],'fake.png',{type:'image/png'}));
+  const session=await login();const form=new FormData();form.set('sha','head1');form.set('item',JSON.stringify({id:crypto.randomUUID(),buyer:'Doris',location:'大阪',name:'眼罩',priceJpy:1,quantity:1}));form.set('image',new File(['<svg></svg>'],'fake.png',{type:'image/png'}));
   assert.equal((await worker.fetch(request('/api/items',{method:'POST',session,body:form}),env)).status,415);
   assert.equal((await worker.fetch(request('/api/assets/%2e%2e%2fsecret.png',{session}),env)).status,404);
+});
+
+test('new items require a buyer before any GitHub request', async () => {
+  const session=await login(); const original=globalThis.fetch; let hits=0;
+  globalThis.fetch=async()=>{hits++;throw new Error();};
+  try {
+    for (const buyer of [undefined, '', '   ', 123, 'x'.repeat(81)]) {
+      const form=new FormData();form.set('sha','head1');form.set('item',JSON.stringify({id:crypto.randomUUID(),buyer,location:'東京',name:'眼罩',priceJpy:100,quantity:1}));
+      const response=await worker.fetch(request('/api/items',{method:'POST',session,body:form}),env);assert.equal(response.status,400);
+    }
+    assert.equal(hits,0);
+  }finally{globalThis.fetch=original;}
 });
