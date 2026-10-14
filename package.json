@@ -1,0 +1,10 @@
+{
+  "name": "shoppinggggg",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check site/app.js && node --check site/core.js",
+    "dev": "python3 -m http.server 5173 --directory site"
+  }
+}
