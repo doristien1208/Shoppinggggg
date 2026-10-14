@@ -1,26 +1,21 @@
 # Shoppinggggg
-手機優先的一頁式代購清單。原生 HTML/CSS/JavaScript，無建置依賴或資料庫。
+手機優先的一頁式代購清單，使用地點頁籤與未購買／已購買／全部篩選。
 
-## 本機預覽
+網站在 GitHub Pages；Cloudflare Worker 驗證朋友共用密碼並寫入 GitHub。資料為 `site/data/items.json`，圖片在 `site/assets/`，無資料庫。GitHub 權杖只存在後端 Secret。
+
+**[依照 SETUP.md 完成一次性部署設定](SETUP.md)**。朋友開啟網站並輸入清單密碼，即可新增品項、上傳圖片或勾選購買狀態。所有人共用同一份清單。
+
+## 開發與驗證
 ```sh
+npm ci
 npm run dev
+npm run check
+npm test
+npm run worker:check
 ```
-開啟 http://localhost:5173 。`npm run check` 與 `npm test` 執行語法與資料／GitHub 寫入測試。
+網站預覽 http://localhost:5173 。後端本機使用 `npm run worker:dev`；在 gitignore 排除的 `.dev.vars` 設定 GITHUB_TOKEN、LIST_PASSWORD、ALLOWED_ORIGIN=http://localhost:5173。網站 config.js 設成本機 Worker URL。**本機 Worker 若使用正式權杖，操作會真的寫入 GitHub**；單元測試使用模擬 API。
 
-## 部署至 GitHub Pages
-1. 將專案推送至 `doristien1208/Shoppinggggg` 的 `main`。
-2. GitHub repo → Settings → Pages → Source 選 **GitHub Actions**。
-3. Actions → Deploy shopping list → Run workflow（或 push main 自動觸發）。
-4. 網址為 https://doristien1208.github.io/Shoppinggggg/ 。
-
-## 手機使用
-GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens：僅選 Shoppinggggg，Repository permissions 的 **Contents: Read and write**，設定到期日。在網站按「連接 GitHub」輸入權杖。不要把權杖貼進聊天、JSON 或程式碼。權杖只保留於目前分頁記憶體，關閉或重整後需重新連接。
-
-勾選即寫入 JSON；新增品項可選圖片（JPEG/PNG/WebP，5 MB 上限），存到 `site/assets/`。按「重新讀取」取得其他手機最新狀態。衝突不覆蓋，請先重新讀取再操作。網路中斷後若不確定是否已寫入，也先重新讀取確認。JSON 寫入失敗可能留下一張尚未使用的圖片，可從 repo 手動清理。公開 repo 和 Pages 的清單與圖片可被其他人讀取。
-
-初始有三筆「範例」資料，可直接編輯 `site/data/items.json` 更換或清空 `items`。
-
-## JSON 結構
+## JSON
 ```json
 {
   "version": 1,
@@ -35,6 +30,6 @@ GitHub Settings → Developer settings → Personal access tokens → Fine-grain
   }]
 }
 ```
-`priceJpy` 為日幣單價，非負整數；`quantity` 為至少 1 的整數；`id` 唯一。image 是相對網站根目錄的 assets 檔案路徑。新增 GitHub commit 後 Pages 部署需等待；已連接的頁面直接從 API 讀取最新 JSON／圖片，不必等待部署。
+priceJpy 為日幣單價，數量至少 1；id 唯一。新增由網站產生 UUID。初始有三筆「範例」，可直接編輯 JSON 更換。
 
-參考：[Pages 部署](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)、[Contents API](https://docs.github.com/en/rest/repos/contents)。
+公開 repo 和 Pages 的清單與圖片可被讀取，密碼限制編輯。Session 期限 12 小時，不儲存原始密碼或 GitHub 權杖於瀏覽器。版本衝突需重新讀取；JSON 與圖片在同一個 commit 更新。適合小型朋友共用清單。

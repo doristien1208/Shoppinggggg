@@ -37,6 +37,6 @@ Flat cards with borders, no decorative shadows. Native modal dialog owns focus t
 ## Shapes
 16px list cards, 12px buttons, 20px summary, 22px dialog.
 ## Components
-app.js owns list rendering, status messaging, form validation and dialog behavior. core.js owns JSON validation and GitHub persistence. Header and form buttons share CSS primitives. Form fields and checkbox use native interaction; no custom dropdown.
+app.js owns list rendering, status messaging, form validation and dialog behavior. core.js owns JSON validation and the backend API client; worker/index.js owns authentication and GitHub persistence. Header and form buttons share CSS primitives. Form fields and checkbox use native interaction; no custom dropdown.
 ## Do's and Don'ts
-Use text and checkbox state to convey completion; colour is secondary. Keep 44px touch targets and focus rings. Show precise loading/errors with retry. All product text is Traditional Chinese. No token persistence, browser alert/confirm/prompt or HTML interpolation from item data. Respect reduced motion and forced colours.
+Use text and checkbox state to convey completion; colour is secondary. Keep 44px touch targets and focus rings. Show precise loading/errors with retry. All product text is Traditional Chinese. No GitHub token or raw password in frontend storage; only an expiring session per tab. No browser alert/confirm/prompt or HTML interpolation from item data. Respect reduced motion and forced colours.

@@ -1,8 +1,28 @@
-import { GitHubStore, validateData } from './core.js';
+import { ApiStore, validateData } from './core.js';
+import { API_BASE_URL } from './config.js';
 const $ = id => document.getElementById(id);
 const yen = value => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(value);
-let data = { version: 1, items: [] }, sha, store, busy = false, preview;
+let data = { version: 1, items: [] }, sha, store, busy = false, preview, draftId;
 const urls = new Map();
+function syncConnection() {
+  if (!store?.session) { try { sessionStorage.removeItem('shopping-session'); } catch {} }
+  $('connect').textContent = store?.session ? '清單已解鎖' : '解鎖清單';
+}
+function restoreSession() {
+  try { const session = sessionStorage.getItem('shopping-session'); if (session && API_BASE_URL) { store = new ApiStore(API_BASE_URL); store.session = session; } } catch {}
+}
+restoreSession();
+async function prepareImage(file) {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', .8));
+    if (!blob || blob.size > 1024 * 1024) throw new Error('圖片縮小後仍太大，請選擇其他圖片。');
+    return new File([blob], 'photo.' + (blob.type === 'image/webp' ? 'webp' : 'png'), { type: blob.type });
+  } finally { bitmap.close(); }
+}
 const params = new URLSearchParams(location.search);
 let place = params.get('place') || '', filter = ['all', 'pending', 'done'].includes(params.get('filter')) ? params.get('filter') : 'all';
 document.querySelector(`input[value="${filter}"]`).checked = true;
@@ -31,12 +51,12 @@ function render() {
     const info = node('div'); info.append(node('p', item.location), node('h3', item.name), node('p', `${yen(item.priceJpy)} × ${item.quantity} 件`), node('p', yen(item.priceJpy * item.quantity), 'amount'));
     const label = node('label', undefined, 'check'); const checkbox = node('input'); checkbox.type = 'checkbox'; checkbox.checked = item.purchased; checkbox.disabled = busy; checkbox.setAttribute('aria-label', `${item.name}，${item.purchased ? '已購買' : '未購買'}`);
     checkbox.addEventListener('change', async () => {
-      if (!store) { checkbox.checked = item.purchased; $('connection').showModal(); return; }
+      if (!store?.session) { checkbox.checked = item.purchased; $('connection').showModal(); return; }
       const next = { ...data, items: data.items.map(i => i.id === item.id ? { ...i, purchased: checkbox.checked } : i) };
       lock(true); message('正在儲存購買狀態…');
-      try { sha = await store.save(next, sha); data = next; message('購買狀態已儲存至 GitHub。'); }
+      try { const result = await store.toggle(item.id, checkbox.checked, sha); sha = result.sha; data = validateData(result.data); message('購買狀態已儲存。'); }
       catch (error) { message(error.message || '儲存失敗，請重新讀取確認狀態。', true); }
-      finally { lock(false); render(); $('list').querySelector(`input[aria-label="${CSS.escape(item.name)}，${next.items.find(i => i.id === item.id).purchased ? '已購買' : '未購買'}"]`)?.focus(); }
+      finally { lock(false); syncConnection(); render(); $('list').querySelector(`input[aria-label="${CSS.escape(item.name)}，${next.items.find(i => i.id === item.id).purchased ? '已購買' : '未購買'}"]`)?.focus(); }
     });
     label.append(checkbox); row.append(image, info, label); $('list').append(row);
   }
@@ -51,46 +71,50 @@ async function hydrateImages() {
 async function load() {
   lock(true); message('正在讀取清單…');
   try {
-    if (store) { const loaded = await store.load(); data = loaded.data; sha = loaded.sha; }
+    if (store?.session) { const loaded = await store.load(); data = loaded.data; sha = loaded.sha; }
     else { const response = await fetch('data/items.json', { cache: 'no-store', signal: AbortSignal.timeout(15000) }); if (!response.ok) throw new Error('無法讀取清單，請稍後重試。'); data = validateData(await response.json()); }
-    render(); message(store ? '已連接 GitHub，變更會自動儲存。' : '連接 GitHub 後，即可勾選與新增品項。'); if (store) void hydrateImages();
+    render(); message(store?.session ? '清單已解鎖，變更會自動儲存。' : '解鎖清單後，即可勾選與新增品項。'); if (store?.session) void hydrateImages();
   } catch (error) { message(error.message || '讀取失敗，請檢查網路後重試。', true); }
-  finally { lock(false); }
+  finally { lock(false); syncConnection(); }
 }
 $('filters').addEventListener('change', event => { filter = event.target.value; stateUrl(); render(); });
 $('connect').addEventListener('click', () => $('connection').showModal());
 $('retry').addEventListener('click', load);
 for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => button.closest('dialog').close());
 $('connection-form').addEventListener('submit', async event => {
-  event.preventDefault(); const token = $('token').value.trim(); if (!token) { $('connection-error').textContent = '請輸入存取權杖。'; $('token').focus(); return; }
-  lock(true); $('connection-error').textContent = ''; const candidate = new GitHubStore(token);
-  try { const loaded = await candidate.load(); store = candidate; data = loaded.data; sha = loaded.sha; $('token').value = ''; $('connection').close(); $('connect').textContent = 'GitHub 已連接'; render(); message('已連接 GitHub，變更會自動儲存。'); void hydrateImages(); }
-  catch (error) { $('connection-error').textContent = error.message || '連接失敗，請檢查網路後重試。'; }
-  finally { lock(false); }
+  event.preventDefault(); const password = $('password').value;
+  if (!password) { $('connection-error').textContent = '請輸入清單密碼。'; $('password').setAttribute('aria-invalid', 'true'); $('password').focus(); return; }
+  lock(true); $('connection-error').textContent = ''; $('password').removeAttribute('aria-invalid');
+  try {
+    const candidate = new ApiStore(API_BASE_URL); await candidate.login(password); const loaded = await candidate.load();
+    store = candidate; data = validateData(loaded.data); sha = loaded.sha;
+    try { sessionStorage.setItem('shopping-session', store.session); } catch {}
+    $('password').value = ''; $('connection').close(); render(); message('清單已解鎖，變更會自動儲存。'); void hydrateImages();
+  } catch (error) { $('connection-error').textContent = error.message || '解鎖失敗，請檢查網路後重試。'; }
+  finally { lock(false); syncConnection(); }
 });
-$('disconnect').addEventListener('click', () => { store = undefined; sha = undefined; $('token').value = ''; $('connection-error').textContent = ''; for (const url of urls.values()) URL.revokeObjectURL(url); urls.clear(); $('connection').close(); $('connect').textContent = '連接 GitHub'; void load(); });
-$('add').addEventListener('click', () => { if (!store) { $('connection').showModal(); return; } $('item-error').textContent = ''; $('editor').showModal(); });
+$('disconnect').addEventListener('click', () => { store = undefined; sha = undefined; $('password').value = ''; $('connection-error').textContent = ''; for (const url of urls.values()) URL.revokeObjectURL(url); urls.clear(); syncConnection(); $('connection').close(); void load(); });
+$('add').addEventListener('click', () => { if (!store?.session) { $('connection').showModal(); return; } draftId ||= crypto.randomUUID(); $('item-error').textContent = ''; $('editor').showModal(); });
 $('image').addEventListener('change', async () => {
   if (preview) URL.revokeObjectURL(preview); $('preview').hidden = true;
   const file = $('image').files[0]; if (!file) return;
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 5 * 1024 * 1024) { $('item-error').textContent = '請選擇 5 MB 以下的 JPG、PNG 或 WebP 圖片。'; $('image').value = ''; return; }
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024) { $('item-error').textContent = '請選擇 10 MB 以下的 JPG、PNG 或 WebP 圖片。'; $('image').value = ''; return; }
   preview = URL.createObjectURL(file); $('preview').src = preview; $('preview').hidden = false;
 });
 $('item-form').addEventListener('submit', async event => {
-  event.preventDefault(); if (!store || busy) return;
-  const item = { id: crypto.randomUUID(), location: $('location').value.trim(), name: $('name').value.trim(), image: 'assets/placeholder.svg', priceJpy: Number($('price').value), quantity: Number($('quantity').value), purchased: false };
+  event.preventDefault(); if (!store?.session || busy) return;
+  const item = { id: draftId, location: $('location').value.trim(), name: $('name').value.trim(), image: 'assets/placeholder.svg', priceJpy: Number($('price').value), quantity: Number($('quantity').value), purchased: false };
   const fields = ['location', 'name', 'price', 'quantity']; fields.forEach(id => { $(id).removeAttribute('aria-invalid'); $(id).setAttribute('aria-describedby', 'item-error'); });
   const invalid = !item.location ? 'location' : !item.name ? 'name' : !$('price').value || !Number.isSafeInteger(item.priceJpy) || item.priceJpy < 0 ? 'price' : !Number.isSafeInteger(item.quantity) || item.quantity < 1 ? 'quantity' : null;
   if (invalid) { $('item-error').textContent = '請填寫地點與品名；金額須為非負整數，數量至少 1。'; $(invalid).setAttribute('aria-invalid', 'true'); $(invalid).focus(); return; }
   lock(true); $('item-error').textContent = ''; message('正在儲存品項…');
   try {
-    validateData({ ...data, items: [...data.items, item] });
-    // Reuse an uploaded asset on retry if JSON write failed.
-    if ($('image').files[0]) { const file = $('image').files[0]; item.image = file.uploadedPath || await store.upload(file); file.uploadedPath = item.image; }
-    const next = { ...data, items: [...data.items, item] }; sha = await store.save(next, sha); data = next;
-    $('editor').close(); $('item-form').reset(); $('preview').hidden = true; if (preview) URL.revokeObjectURL(preview); place = item.location; filter = 'all'; document.querySelector('input[value="all"]').checked = true; stateUrl(); render(); void hydrateImages(); message('品項已儲存至 GitHub。');
+    validateData({ ...data, items: [...data.items.filter(i => i.id !== item.id), item] });
+    const image = $('image').files[0] ? await prepareImage($('image').files[0]) : undefined;
+    const result = await store.create(item, image, sha); sha = result.sha; data = validateData(result.data); draftId = undefined;
+    $('editor').close(); $('item-form').reset(); $('preview').hidden = true; if (preview) URL.revokeObjectURL(preview); place = item.location; filter = 'all'; document.querySelector('input[value="all"]').checked = true; stateUrl(); render(); void hydrateImages(); message('品項已儲存。');
   } catch (error) { $('item-error').textContent = error.message || '儲存失敗，請重新讀取確認狀態。'; message('儲存未完成，輸入內容已保留。', true); }
-  finally { lock(false); }
+  finally { lock(false); syncConnection(); }
 });
 for (const dialog of document.querySelectorAll('dialog')) dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
 window.addEventListener('beforeunload', event => { if (busy || ($('editor').open && ($('name').value || $('location').value))) { event.preventDefault(); event.returnValue = ''; } });

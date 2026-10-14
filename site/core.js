@@ -19,46 +19,37 @@ export function encodeText(value) {
 export function decodeText(value) {
   return new TextDecoder().decode(Uint8Array.from(atob(value.replace(/\s/g, '')), c => c.charCodeAt(0)));
 }
-export class GitHubStore {
-  constructor(token, fetcher = fetch) { this.token = token; this.fetcher = fetcher; }
-  async request(path, method = 'GET', body) {
-    const response = await this.fetcher(`https://api.github.com/repos/${REPO}/${path}`, { method, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${this.token}`, 'X-GitHub-Api-Version': '2022-11-28', ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), cache: 'no-store', signal: AbortSignal.timeout(20000) });
+export class ApiStore {
+  constructor(baseUrl, fetcher = fetch) {
+    if (!baseUrl || !/^https:\/\//.test(baseUrl) && !/^http:\/\/localhost(?::\d+)?$/.test(baseUrl)) throw new Error('清單服務尚未設定，請聯絡清單管理者。');
+    this.baseUrl = baseUrl.replace(/\/$/, ''); this.fetcher = fetcher;
+  }
+  async request(path, options = {}) {
+    let response;
+    try { response = await this.fetcher.call(globalThis, `${this.baseUrl}/api${path}`, { ...options, headers: { ...(this.session ? { Authorization: `Bearer ${this.session}` } : {}), ...options.headers }, cache: 'no-store', credentials: 'omit', signal: AbortSignal.timeout(60000) }); }
+    catch { throw new Error('無法連接清單服務。請檢查網路，重新讀取後確認是否已儲存。'); }
     if (!response.ok) {
-      if ([409, 422].includes(response.status)) throw new Error('GitHub 版本已變更，請重新讀取清單後再操作。');
-      if ([401, 403, 404].includes(response.status)) throw new Error('無法存取清單。請檢查權杖、repo 授權與 Contents 讀寫權限。');
-      throw new Error(`GitHub 回應 ${response.status}，請稍後重新讀取。`);
+      if (response.status === 401) this.session = undefined;
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || '清單服務暫時無法使用，請稍後重試。');
     }
-    return response.json();
+    return response;
   }
-  async load() {
-    const repo = await this.request('');
-    this.branch = repo.default_branch;
-    const file = await this.request(`contents/${DATA_PATH}?ref=${encodeURIComponent(this.branch)}`);
-    return { data: validateData(JSON.parse(decodeText(file.content))), sha: file.sha };
+  async login(password) {
+    const response = await this.request('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+    this.session = (await response.json()).session;
   }
-  async save(data, sha) {
-    validateData(data);
-    // The SHA is the optimistic lock: GitHub rejects stale writes.
-    const result = await this.request(`contents/${DATA_PATH}`, 'PUT', { message: 'Update shopping list', content: encodeText(JSON.stringify(data, null, 2) + '\n'), sha, branch: this.branch });
-    return result.content.sha;
+  async load() { return (await this.request('/items')).json(); }
+  async toggle(id, purchased, sha) {
+    return (await this.request(`/items/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ purchased, sha }) })).json();
   }
-  async upload(file) {
-    const extensions = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
-    if (!extensions[file.type] || file.size > 5 * 1024 * 1024 || !file.size) throw new Error('請選擇 5 MB 以下的 JPG、PNG 或 WebP 圖片。');
-    const bitmap = await createImageBitmap(file); bitmap.close();
-    const name = `${crypto.randomUUID()}.${extensions[file.type]}`;
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
-    await this.request(`contents/site/assets/${name}`, 'PUT', { message: 'Add shopping item image', content: btoa(binary), branch: this.branch });
-    return `assets/${name}`;
+  async create(item, image, sha) {
+    const form = new FormData(); form.set('item', JSON.stringify(item)); form.set('sha', sha);
+    if (image) form.set('image', image);
+    return (await this.request('/items', { method: 'POST', body: form })).json();
   }
   async imageUrl(path) {
-    const file = await this.request(`contents/site/${path}?ref=${encodeURIComponent(this.branch)}`);
-    const ext = path.split('.').pop().toLowerCase();
-    const type = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext];
-    if (!type) return 'assets/placeholder.svg';
-    const blob = file.content ? file : await this.request(`git/blobs/${file.sha}`);
-    const bytes = Uint8Array.from(atob(blob.content.replace(/\s/g, '')), c => c.charCodeAt(0));
-    return URL.createObjectURL(new Blob([bytes], { type }));
+    const response = await this.request(`/assets/${encodeURIComponent(path.slice(7))}`);
+    return URL.createObjectURL(await response.blob());
   }
 }
