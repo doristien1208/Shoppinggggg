@@ -40,6 +40,16 @@
       "priceJpy": 4950,
       "quantity": 1,
       "purchased": false
+    },
+    {
+      "id": "9c180a84-189d-4109-8938-610a3490005a",
+      "buyer": "羊駝",
+      "location": "FF14 FanFest",
+      "name": "ファイナルファンタジーXIV　グミ　＜エナジードリンクGG＞",
+      "image": "assets/9c180a84-189d-4109-8938-610a3490005a-d75357e764075376.webp",
+      "priceJpy": 1900,
+      "quantity": 1,
+      "purchased": false
     }
   ]
 }
