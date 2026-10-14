@@ -32,3 +32,4 @@
 - A separate local read-only fixture with a missing asset verified the image error message and working close control. Production data and image files were not changed.
 - JavaScript syntax checks, all 17 existing tests and Worker dry run pass. Strict UI audit has 0 findings; design lint has 0 errors and the four existing unused-token warnings.
 - Frontend asset query versions updated to avoid stale CSS/JS after Pages deployment.
+- Follow-up: dialog now hugs the image, with a 44px circular X inset 8px from its top-right corner. At 390×844 the dialog and image both measure 358×358; at 1280×800 both measure 768×768. Browser verified image clicks stay open and backdrop/X/Escape still close and restore thumbnail focus.
