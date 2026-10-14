@@ -8,7 +8,11 @@ class HttpError extends Error {
 }
 const fail = (status, message) => { throw new HttpError(status, message); };
 function configuration(env) {
-  if (!env.GITHUB_TOKEN || !env.LIST_PASSWORD || env.LIST_PASSWORD.length < 12 || !env.ALLOWED_ORIGIN || !env.LOGIN_LIMITER || !env.API_LIMITER || !env.WRITE_LIMITER) fail(503, '清單服務尚未設定完成，請聯絡管理者。');
+  if (!env.GITHUB_TOKEN) fail(503, '請管理者設定 GITHUB_TOKEN Secret。');
+  if (!env.LIST_PASSWORD) fail(503, '請管理者設定 LIST_PASSWORD Secret。');
+  if (env.LIST_PASSWORD.length < 12) fail(503, '清單密碼至少需要 12 個字元，請管理者重新設定 LIST_PASSWORD。');
+  if (!env.ALLOWED_ORIGIN) fail(503, '請管理者設定網站來源 ALLOWED_ORIGIN。');
+  if (!env.LOGIN_LIMITER || !env.API_LIMITER || !env.WRITE_LIMITER) fail(503, '請管理者使用專案的 wrangler.jsonc 重新部署，補齊流量限制設定。');
 }
 const base64url = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 async function sessionKey(env) {

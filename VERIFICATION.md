@@ -6,3 +6,8 @@
 - Codex in-app browser against real Worker handler with a mocked GitHub fetch: bad password, cross-origin login, checkbox write, create validation, JPEG preview/compression/upload, newly created image display and session restoration after reload worked. Fixture ran separate website/API ports; no production data written.
 - Narrow viewport 390×844 checked; password dialog screenshot saved as chat deliverable.
 - Cloudflare account login, Secrets and public Worker URL are pending user setup. Live GitHub write and end-to-end deployed Pages/Worker remain to be verified after setup.
+
+## Live setup — 2026-10-14
+- Frontend deployed successfully by GitHub Actions at https://doristien1208.github.io/Shoppinggggg/ with the public Worker URL configured.
+- Cloudflare Worker deployed with all three rate-limit bindings and the expected allowed origin. GITHUB_TOKEN and LIST_PASSWORD Secret metadata are present; values were not retrieved.
+- Live /health reports LIST_PASSWORD is shorter than the required 12 characters. User must update this Secret before authenticated reads/writes can be tested.
