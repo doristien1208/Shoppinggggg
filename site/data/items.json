@@ -27,6 +27,15 @@
       "priceJpy": 850,
       "quantity": 1,
       "purchased": true
+    },
+    {
+      "id": "c46b416f-3a7f-4145-bf93-9b0ac5aeca2d",
+      "location": "test",
+      "name": "test",
+      "image": "assets/placeholder.svg",
+      "priceJpy": 10,
+      "quantity": 1,
+      "purchased": false
     }
   ]
 }
