@@ -106,16 +106,16 @@ function render() {
   $('list').replaceChildren();
   if (!items.length) $('list').append(node('li', data.items.length ? '這個分類沒有符合的品項。試試其他篩選。' : '清單還是空的，新增第一個想買的品項吧。', 'empty'));
   for (const item of items) {
-    const row = node('li', undefined, `item${item.purchased ? ' done' : ''}`);
+    const row = node('li', undefined, `item${item.purchased ? ' done' : ''}${item.note?.trim() ? ' with-note' : ''}`);
     const image = node('img'); image.src = urls.get(item.image) || item.image; image.dataset.path = item.image; image.alt = ''; image.loading = 'lazy'; image.addEventListener('error', () => { image.src = 'assets/placeholder.svg'; }, { once: true });
     const thumbnail = node('button', undefined, 'thumbnail'); thumbnail.type = 'button'; thumbnail.disabled = busy; thumbnail.setAttribute('aria-label', `查看大圖：${item.name}`); thumbnail.title = '查看大圖'; thumbnail.append(image); thumbnail.addEventListener('click', () => openImage(item));
     const info = node('div'); info.append(node('p', item.location), node('p', `購買人：${buyerName(item) || '未指定'}`, 'buyer-name'), node('h3', item.name), node('p', `${yen(item.priceJpy)} × ${item.quantity} 件`));
-    const footer = node('div', undefined, 'item-footer'); footer.append(node('p', yen(item.priceJpy * item.quantity), 'amount'));
+    info.append(node('p', yen(item.priceJpy * item.quantity), 'amount'));
+    const topActions = node('div', undefined, 'item-actions-top');
     if (item.note?.trim()) {
       const noteButton = node('button', undefined, 'icon-button note-button'); noteButton.type = 'button'; noteButton.disabled = busy; noteButton.title = '查看備註'; noteButton.setAttribute('aria-label', `查看備註：${item.name}`);
-      const icon = node('span', undefined, 'comment-icon'); icon.setAttribute('aria-hidden', 'true'); noteButton.append(icon); noteButton.addEventListener('click', () => openNote(item)); footer.append(noteButton);
+      const icon = node('span', undefined, 'comment-icon'); icon.setAttribute('aria-hidden', 'true'); noteButton.append(icon); noteButton.addEventListener('click', () => openNote(item)); topActions.append(noteButton);
     }
-    info.append(footer);
     const label = node('label', undefined, 'check'); const checkbox = node('input'); checkbox.type = 'checkbox'; checkbox.checked = item.purchased; checkbox.disabled = busy; checkbox.setAttribute('aria-label', `${item.name}，${item.purchased ? '已購買' : '未購買'}`);
     checkbox.addEventListener('change', async () => {
       if (!store?.session) { checkbox.checked = item.purchased; $('connection').showModal(); return; }
@@ -133,7 +133,7 @@ function render() {
       if (!store?.session) { $('connection').showModal(); return; }
       deleteTarget = item.id; $('delete-name').textContent = item.name; $('delete-error').textContent = ''; $('delete-dialog').showModal();
     });
-    const actions = node('div', undefined, 'item-actions'); label.append(checkbox); actions.append(label, remove); row.append(thumbnail, info, actions); $('list').append(row);
+    const actions = node('div', undefined, 'item-actions'); label.append(checkbox); topActions.append(label); actions.append(topActions, remove); row.append(thumbnail, info, actions); $('list').append(row);
   }
 }
 async function hydrateImages() {

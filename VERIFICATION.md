@@ -41,3 +41,8 @@
 - Browser fixture using the real Worker with a mocked GitHub backend confirmed the 21-character inline error and blocked save, 20-character Chinese/emoji save, updated note icon, correct dialog content and persistence after reload.
 - At 390px, note dialog and list have no horizontal overflow. X/backdrop/Escape dismiss, clicking note content stays open, focus returns to the icon, and image preview continues working. No production shopping data was written by the fixture.
 - Uses the user's `site/assets/comment.svg` as a current-color mask beside the item total. Missing/blank notes show no icon.
+
+## Item action positions — 2026-10-14
+- Checkbox is aligned to the top-right, delete to the bottom-right, and comment immediately left of the checkbox. Comment/checkbox/delete targets remain 44×44; the action column expands only for items with notes.
+- Browser verified the real current list at 320px, 390px and desktop widths without horizontal overflow, with aligned top controls and no overlapping click targets. Comment dialog opens/closes and restores focus from the new position.
+- Syntax, all 21 existing tests, Worker dry run and strict UI audit pass. No backend change or shopping-data write is needed for this layout update.
