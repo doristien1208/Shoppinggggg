@@ -50,6 +50,17 @@
       "priceJpy": 1900,
       "quantity": 1,
       "purchased": false
+    },
+    {
+      "id": "90aad0a8-39de-4c0d-be69-d68fd7679896",
+      "buyer": "羊駝",
+      "location": "唐吉訶德",
+      "name": "UHA味覺糖-鐵+葉酸",
+      "note": "價格可能不同，藥妝店有機會有",
+      "image": "assets/90aad0a8-39de-4c0d-be69-d68fd7679896-225537b63b3d74ae.webp",
+      "priceJpy": 643,
+      "quantity": 1,
+      "purchased": false
     }
   ]
 }
