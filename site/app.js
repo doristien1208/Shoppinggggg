@@ -4,6 +4,34 @@ const $ = id => document.getElementById(id);
 const yen = value => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(value);
 let data = { version: 1, items: [] }, sha, store, busy = false, preview, draftId, deleteTarget, messageTimer;
 const urls = new Map();
+const imageViewer = $('image-viewer');
+let imageBackdropPressed = false;
+function openImage(item) {
+  const image = $('viewer-image');
+  image.alt = item.name; image.dataset.path = item.image; image.hidden = true;
+  $('viewer-status').textContent = '正在載入圖片…'; $('viewer-status').hidden = false;
+  imageViewer.setAttribute('aria-label', `${item.name}的大圖`);
+  imageViewer.showModal(); document.documentElement.classList.add('image-open');
+  image.src = urls.get(item.image) || item.image;
+}
+$('viewer-image').addEventListener('load', () => {
+  if (!imageViewer.open) return;
+  $('viewer-image').hidden = false; $('viewer-status').hidden = true;
+});
+$('viewer-image').addEventListener('error', () => {
+  if (!imageViewer.open) return;
+  $('viewer-image').hidden = true; $('viewer-status').textContent = '圖片無法載入，請關閉後再試。'; $('viewer-status').hidden = false;
+});
+imageViewer.addEventListener('pointerdown', event => { imageBackdropPressed = event.target === imageViewer; });
+imageViewer.addEventListener('pointercancel', () => { imageBackdropPressed = false; });
+imageViewer.addEventListener('click', event => {
+  if (imageBackdropPressed && event.target === imageViewer) imageViewer.close();
+  imageBackdropPressed = false;
+});
+imageViewer.addEventListener('close', () => {
+  document.documentElement.classList.remove('image-open'); imageBackdropPressed = false;
+  $('viewer-image').removeAttribute('src'); delete $('viewer-image').dataset.path;
+});
 function syncConnection() {
   if (!store?.session) { try { sessionStorage.removeItem('shopping-session'); } catch {} }
   $('connect').textContent = store?.session ? '清單已解鎖' : '解鎖清單';
@@ -61,7 +89,8 @@ function render() {
   if (!items.length) $('list').append(node('li', data.items.length ? '這個分類沒有符合的品項。試試其他篩選。' : '清單還是空的，新增第一個想買的品項吧。', 'empty'));
   for (const item of items) {
     const row = node('li', undefined, `item${item.purchased ? ' done' : ''}`);
-    const image = node('img'); image.src = urls.get(item.image) || item.image; image.alt = item.name; image.loading = 'lazy'; image.addEventListener('error', () => { image.src = 'assets/placeholder.svg'; }, { once: true });
+    const image = node('img'); image.src = urls.get(item.image) || item.image; image.dataset.path = item.image; image.alt = ''; image.loading = 'lazy'; image.addEventListener('error', () => { image.src = 'assets/placeholder.svg'; }, { once: true });
+    const thumbnail = node('button', undefined, 'thumbnail'); thumbnail.type = 'button'; thumbnail.disabled = busy; thumbnail.setAttribute('aria-label', `查看大圖：${item.name}`); thumbnail.title = '查看大圖'; thumbnail.append(image); thumbnail.addEventListener('click', () => openImage(item));
     const info = node('div'); info.append(node('p', item.location), node('p', `購買人：${buyerName(item) || '未指定'}`, 'buyer-name'), node('h3', item.name), node('p', `${yen(item.priceJpy)} × ${item.quantity} 件`), node('p', yen(item.priceJpy * item.quantity), 'amount'));
     const label = node('label', undefined, 'check'); const checkbox = node('input'); checkbox.type = 'checkbox'; checkbox.checked = item.purchased; checkbox.disabled = busy; checkbox.setAttribute('aria-label', `${item.name}，${item.purchased ? '已購買' : '未購買'}`);
     checkbox.addEventListener('change', async () => {
@@ -80,13 +109,13 @@ function render() {
       if (!store?.session) { $('connection').showModal(); return; }
       deleteTarget = item.id; $('delete-name').textContent = item.name; $('delete-error').textContent = ''; $('delete-dialog').showModal();
     });
-    const actions = node('div', undefined, 'item-actions'); label.append(checkbox); actions.append(label, remove); row.append(image, info, actions); $('list').append(row);
+    const actions = node('div', undefined, 'item-actions'); label.append(checkbox); actions.append(label, remove); row.append(thumbnail, info, actions); $('list').append(row);
   }
 }
 async function hydrateImages() {
   const activeStore = store;
   await Promise.allSettled([...new Set(data.items.map(i => i.image))].filter(path => path !== 'assets/placeholder.svg').map(async path => {
-    try { const url = await activeStore.imageUrl(path); if (store !== activeStore) { URL.revokeObjectURL(url); return; } const old = urls.get(path); if (old) URL.revokeObjectURL(old); urls.set(path, url); for (const image of $('list').querySelectorAll('img')) if (image.getAttribute('src') === path) image.src = url; }
+    try { const url = await activeStore.imageUrl(path); if (store !== activeStore) { URL.revokeObjectURL(url); return; } const old = urls.get(path); urls.set(path, url); for (const image of [...$('list').querySelectorAll('img'), $('viewer-image')]) if (image.dataset.path === path) image.src = url; if (old) URL.revokeObjectURL(old); }
     catch { /* Static deployed image remains a fallback. */ }
   }));
 }

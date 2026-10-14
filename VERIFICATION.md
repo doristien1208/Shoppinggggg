@@ -25,3 +25,10 @@
 - Browser fixture confirms unlock before deletion, item-named confirmation with Cancel focus, cancel/focus restoration, successful deletion and buyer totals, version conflict retaining the item, refresh/retry success and fallback after deleting the last item for a buyer. Mock fixtures made no production writes.
 - 390px phone viewport has no horizontal overflow. Refresh icon sits beside the category title; item checkbox/trash targets are 44px.
 - Intro matches the four user-specified lines; permanent subtitle, footer and unlock message removed. Status notifications do not shift the list layout.
+
+## Image viewer — 2026-10-14
+- Clickable native thumbnail buttons open a shared native dialog. Images retain proportions and fit both 390×844 and 1280×800 viewports without horizontal overflow.
+- Browser verified X, blank backdrop and Escape dismissal; image clicks keep the dialog open. Enter/Space open it, focus returns to the thumbnail, and background scroll lock is removed on close.
+- A separate local read-only fixture with a missing asset verified the image error message and working close control. Production data and image files were not changed.
+- JavaScript syntax checks, all 17 existing tests and Worker dry run pass. Strict UI audit has 0 findings; design lint has 0 errors and the four existing unused-token warnings.
+- Frontend asset query versions updated to avoid stale CSS/JS after Pages deployment.
