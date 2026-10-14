@@ -20,6 +20,16 @@
       "priceJpy": 3969,
       "quantity": 1,
       "purchased": false
+    },
+    {
+      "id": "66f28dfd-031f-429f-b510-7ceb6f53bb71",
+      "buyer": "燒肉",
+      "location": "FF14 FanFest",
+      "name": "Bomber Jacket - ALPHA SQUADRON（L)",
+      "image": "assets/66f28dfd-031f-429f-b510-7ceb6f53bb71-b7052ba1bf142fbd.png",
+      "priceJpy": 29700,
+      "quantity": 1,
+      "purchased": false
     }
   ]
 }
