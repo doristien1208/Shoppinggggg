@@ -10,6 +10,16 @@
       "priceJpy": 3960,
       "quantity": 1,
       "purchased": false
+    },
+    {
+      "id": "001da176-8515-43c3-b35f-25dc5ee5b535",
+      "buyer": "羊駝",
+      "location": "FF14 FanFest",
+      "name": "ファイナルファンタジーXIV　オードパルファム　ジョブ：召喚士",
+      "image": "assets/001da176-8515-43c3-b35f-25dc5ee5b535-cfdb35fc94cb3a85.webp",
+      "priceJpy": 3969,
+      "quantity": 1,
+      "purchased": false
     }
   ]
 }
