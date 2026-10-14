@@ -31,12 +31,12 @@ Runtime owner is site/styles.css :root. background → --bg, surface → --surfa
 ## Typography
 System Traditional Chinese fonts avoid network font swaps; monospace for yen and progress. 16px item names with 1.5 line height, 30px mobile heading.
 ## Layout
-Single natural document scroller, max-width 800px; 16px phone gutters. Horizontal location chips are scrollable. Item name wraps without hiding checkbox. Purchase-state filters are native radio controls. Buyer filter is a labelled native select; platform popup geometry and appearance are accepted, with touch and keyboard behavior owned by the OS. Location navigation uses aria-pressed buttons rather than ARIA tab roles.
+Single natural document scroller, max-width 800px; 16px phone gutters. Horizontal location chips are scrollable. Item name wraps; checkbox and trash icon share a 44px vertical action column. Refresh is an accessible 44px icon beside the category heading. Purchase-state filters are native radio controls. Buyer filter is a labelled native select; platform popup geometry and appearance are accepted, with touch and keyboard behavior owned by the OS. Location navigation uses aria-pressed buttons rather than ARIA tab roles.
 ## Elevation & Depth
 Flat cards with borders, no decorative shadows. Native modal dialog owns focus trap and inert background.
 ## Shapes
 16px list cards, 12px buttons, 20px summary, 22px dialog.
 ## Components
-app.js owns list rendering, status messaging, form validation and dialog behavior. core.js owns JSON validation and the backend API client; worker/index.js owns authentication and GitHub persistence. Header and form buttons share CSS primitives. Form fields and checkbox use native interaction; buyer select uses native OS popup.
+app.js owns list rendering, brief status messaging, form validation and native create/delete dialogs. Intro copy has only the four user-approved lines, without a brand subtitle or technical footer. core.js owns JSON validation and the backend API client; worker/index.js owns authentication and GitHub persistence. Header and form buttons share CSS primitives. Form fields and checkbox use native interaction; buyer select uses native OS popup.
 ## Do's and Don'ts
 Use text and checkbox state to convey completion; colour is secondary. Keep 44px touch targets and focus rings. Show precise loading/errors with retry. All product text is Traditional Chinese. No GitHub token or raw password in frontend storage; only an expiring session per tab. No browser alert/confirm/prompt or HTML interpolation from item data. Respect reduced motion and forced colours.

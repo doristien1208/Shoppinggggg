@@ -148,6 +148,14 @@ async function handle(request, env) {
   if (pathname === '/api/items' && request.method === 'GET') return Response.json(await snapshot(env));
   if (pathname === '/api/items' && request.method === 'POST') { await rate(env.WRITE_LIMITER, 'shared-list'); return Response.json(await createItem(request, env)); }
   const itemRoute = pathname.match(/^\/api\/items\/([a-zA-Z0-9_-]+)$/);
+  if (itemRoute && request.method === 'DELETE') {
+    await rate(env.WRITE_LIMITER, 'shared-list');
+    const input = await jsonBody(request);
+    const current = await snapshot(env);
+    if (!current.data.items.some(i => i.id === itemRoute[1])) return Response.json(current);
+    verifySha(input?.sha, current);
+    return Response.json(await commit(env, current, { ...current.data, items: current.data.items.filter(i => i.id !== itemRoute[1]) }));
+  }
   if (itemRoute && request.method === 'PATCH') {
     await rate(env.WRITE_LIMITER, 'shared-list');
     const input = await jsonBody(request); if (typeof input?.purchased !== 'boolean') fail(400, '購買狀態不正確。');
@@ -173,7 +181,7 @@ export default {
     const headers = new Headers(response.headers);
     if (request.headers.get('Origin') === env.ALLOWED_ORIGIN) {
       headers.set('Access-Control-Allow-Origin', env.ALLOWED_ORIGIN);
-      headers.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+      headers.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
       headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     }
     headers.set('Vary', 'Origin'); headers.set('Cache-Control', 'no-store'); headers.set('X-Content-Type-Options', 'nosniff');

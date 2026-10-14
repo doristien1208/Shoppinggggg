@@ -3,7 +3,7 @@
 
 網站在 GitHub Pages；Cloudflare Worker 驗證朋友共用密碼並寫入 GitHub。資料為 `site/data/items.json`，圖片在 `site/assets/`，無資料庫。GitHub 權杖只存在後端 Secret。
 
-**[依照 SETUP.md 完成一次性部署設定](SETUP.md)**。朋友開啟網站並輸入清單密碼，即可新增品項、上傳圖片或勾選購買狀態。所有人共用同一份清單。
+**[依照 SETUP.md 完成一次性部署設定](SETUP.md)**。朋友開啟網站並輸入清單密碼，即可新增品項、上傳圖片、勾選購買狀態或確認刪除品項。所有人共用同一份清單。
 
 ## 開發與驗證
 ```sh
@@ -33,4 +33,4 @@ npm run worker:check
 ```
 priceJpy 為日幣單價，數量至少 1；id 唯一。新增由網站產生 UUID。清單初始為空。新增必填購買人；舊資料缺少 buyer 時顯示「未指定」。
 
-公開 repo 和 Pages 的清單與圖片可被讀取，密碼限制編輯。Session 期限 12 小時，不儲存原始密碼或 GitHub 權杖於瀏覽器。版本衝突需重新讀取；JSON 與圖片在同一個 commit 更新。適合小型朋友共用清單。
+公開 repo 和 Pages 的清單與圖片可被讀取，密碼限制編輯。Session 期限 12 小時，不儲存原始密碼或 GitHub 權杖於瀏覽器。分類標題右側的刷新圖示可重新讀取。刪除需確認品名；版本衝突需重新讀取；JSON 與圖片在同一個 commit 更新。適合小型朋友共用清單。

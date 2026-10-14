@@ -2,7 +2,7 @@ import { ApiStore, validateData, buyerName, itemsForBuyer, buyerSummary } from '
 import { API_BASE_URL } from './config.js';
 const $ = id => document.getElementById(id);
 const yen = value => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(value);
-let data = { version: 1, items: [] }, sha, store, busy = false, preview, draftId;
+let data = { version: 1, items: [] }, sha, store, busy = false, preview, draftId, deleteTarget, messageTimer;
 const urls = new Map();
 function syncConnection() {
   if (!store?.session) { try { sessionStorage.removeItem('shopping-session'); } catch {} }
@@ -27,9 +27,14 @@ const params = new URLSearchParams(location.search);
 let buyerFilter = params.has('buyer') ? params.get('buyer') : null;
 let place = params.get('place') || '', filter = ['all', 'pending', 'done'].includes(params.get('filter')) ? params.get('filter') : 'all';
 document.querySelector(`input[value="${filter}"]`).checked = true;
-function message(text, error = false) { $('notice').textContent = error ? '' : text; $('error').textContent = error ? text : ''; $('error').hidden = !error;  }
+function message(text, error = false) {
+  clearTimeout(messageTimer);
+  $('notice').textContent = error ? '' : text; $('notice').hidden = error || !text;
+  $('error').textContent = error ? text : ''; $('error').hidden = !error;
+  if (text && !error && !text.startsWith('正在')) messageTimer = setTimeout(() => { $('notice').hidden = true; $('notice').textContent = ''; }, 4000);
+}
 function stateUrl() { const q = new URLSearchParams(); if (place) q.set('place', place); if (buyerFilter !== null) q.set('buyer', buyerFilter); if (filter !== 'all') q.set('filter', filter); history.replaceState(null, '', `${location.pathname}${q.size ? '?' + q : ''}`); }
-function lock(value) { busy = value; document.querySelectorAll('button, input, select').forEach(el => { el.disabled = value; }); $('list').setAttribute('aria-busy', String(value)); }
+function lock(value) { busy = value; $('retry').setAttribute('aria-busy', String(value)); document.querySelectorAll('button, input, select').forEach(el => { el.disabled = value; }); $('list').setAttribute('aria-busy', String(value)); }
 function node(tag, text, cls) { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (cls) el.className = cls; return el; }
 function render() {
   const buyers = [...new Set(data.items.map(buyerName))].sort((a, b) => a.localeCompare(b, 'zh-TW'));
@@ -67,7 +72,15 @@ function render() {
       catch (error) { message(error.message || '儲存失敗，請重新讀取確認狀態。', true); }
       finally { lock(false); syncConnection(); render(); $('list').querySelector(`input[aria-label="${CSS.escape(item.name)}，${next.items.find(i => i.id === item.id).purchased ? '已購買' : '未購買'}"]`)?.focus(); }
     });
-    label.append(checkbox); row.append(image, info, label); $('list').append(row);
+    const remove = node('button', undefined, 'icon-button delete-item'); remove.type = 'button'; remove.title = '刪除品項'; remove.setAttribute('aria-label', `刪除品項：${item.name}`);
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', width: '20', height: '20', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) svg.setAttribute(key, value);
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5'); svg.append(path); remove.append(svg);
+    remove.addEventListener('click', () => {
+      if (!store?.session) { $('connection').showModal(); return; }
+      deleteTarget = item.id; $('delete-name').textContent = item.name; $('delete-error').textContent = ''; $('delete-dialog').showModal();
+    });
+    const actions = node('div', undefined, 'item-actions'); label.append(checkbox); actions.append(label, remove); row.append(image, info, actions); $('list').append(row);
   }
 }
 async function hydrateImages() {
@@ -82,7 +95,7 @@ async function load() {
   try {
     if (store?.session) { const loaded = await store.load(); data = loaded.data; sha = loaded.sha; }
     else { const response = await fetch('data/items.json', { cache: 'no-store', signal: AbortSignal.timeout(15000) }); if (!response.ok) throw new Error('無法讀取清單，請稍後重試。'); data = validateData(await response.json()); }
-    render(); message(store?.session ? '清單已解鎖，變更會自動儲存。' : '解鎖清單後，即可勾選與新增品項。'); if (store?.session) void hydrateImages();
+    render(); message(''); if (store?.session) void hydrateImages();
   } catch (error) { message(error.message || '讀取失敗，請檢查網路後重試。', true); }
   finally { lock(false); syncConnection(); }
 }
@@ -90,6 +103,17 @@ $('buyer-filter').addEventListener('change', event => { buyerFilter = JSON.parse
 $('filters').addEventListener('change', event => { filter = event.target.value; stateUrl(); render(); });
 $('connect').addEventListener('click', () => $('connection').showModal());
 $('retry').addEventListener('click', load);
+$('delete-confirm').addEventListener('click', async () => {
+  if (!store?.session || busy || !deleteTarget) return;
+  const id = deleteTarget; lock(true); $('delete-error').textContent = ''; message('正在刪除品項…');
+  try {
+    const result = await store.remove(id, sha); data = validateData(result.data); sha = result.sha;
+    $('delete-dialog').close(); render(); message('品項已刪除。');
+    for (const [path, url] of urls) if (!data.items.some(i => i.image === path)) { URL.revokeObjectURL(url); urls.delete(path); }
+  } catch (error) { $('delete-error').textContent = error.message || '刪除失敗，請重新讀取後再試。'; message('刪除未完成。', true); }
+  finally { lock(false); syncConnection(); if (!$('delete-dialog').open) $('retry').focus(); }
+});
+$('delete-dialog').addEventListener('close', () => { deleteTarget = undefined; });
 for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => button.closest('dialog').close());
 $('connection-form').addEventListener('submit', async event => {
   event.preventDefault(); const password = $('password').value;
@@ -99,7 +123,7 @@ $('connection-form').addEventListener('submit', async event => {
     const candidate = new ApiStore(API_BASE_URL); await candidate.login(password); const loaded = await candidate.load();
     store = candidate; data = validateData(loaded.data); sha = loaded.sha;
     try { sessionStorage.setItem('shopping-session', store.session); } catch {}
-    $('password').value = ''; $('connection').close(); render(); message('清單已解鎖，變更會自動儲存。'); void hydrateImages();
+    $('password').value = ''; $('connection').close(); render(); message(''); void hydrateImages();
   } catch (error) { $('connection-error').textContent = error.message || '解鎖失敗，請檢查網路後重試。'; }
   finally { lock(false); syncConnection(); }
 });

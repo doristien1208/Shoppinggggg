@@ -17,3 +17,11 @@
 - Added buyer input and native select filter. Summary counts and total include all items for the selected buyer, independently of location/purchase-state filters. Legacy missing buyer is unassigned.
 - 14 unit/API tests pass, including buyer total calculations, legacy compatibility, required buyer validation and persistence. Strict premium audit has 0 findings.
 - Browser fixture with mocked GitHub confirmed buyer filters, combined location/status filters, unassigned handling, prefilled/required create field, saved buyer and updated statistics after create/checkoff. Narrow 390px viewport has no horizontal content overflow. Fixture data was not written to production.
+
+## Delete + quieter UI — 2026-10-14
+- Authenticated DELETE removes one JSON item, checks branch version, permits safe retry and preserves image assets/shared references.
+- 17 tests pass, including unauthenticated delete rejection, exact-item removal, stale delete prevention, safe retry and concurrent publish failure.
+- Strict UI audit: 0 findings. Worker dry run succeeds.
+- Browser fixture confirms unlock before deletion, item-named confirmation with Cancel focus, cancel/focus restoration, successful deletion and buyer totals, version conflict retaining the item, refresh/retry success and fallback after deleting the last item for a buyer. Mock fixtures made no production writes.
+- 390px phone viewport has no horizontal overflow. Refresh icon sits beside the category title; item checkbox/trash targets are 44px.
+- Intro matches the four user-specified lines; permanent subtitle, footer and unlock message removed. Status notifications do not shift the list layout.

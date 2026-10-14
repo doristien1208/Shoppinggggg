@@ -52,6 +52,9 @@ export class ApiStore {
   async toggle(id, purchased, sha) {
     return (await this.request(`/items/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ purchased, sha }) })).json();
   }
+  async remove(id, sha) {
+    return (await this.request(`/items/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sha }) })).json();
+  }
   async create(item, image, sha) {
     const form = new FormData(); form.set('item', JSON.stringify(item)); form.set('sha', sha);
     if (image) form.set('image', image);
