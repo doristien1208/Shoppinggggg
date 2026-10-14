@@ -24,6 +24,7 @@ npm run worker:check
     "buyer": "Doris",
     "location": "東京車站",
     "name": "奶油夾心餅乾",
+    "note": "請選原味",
     "image": "assets/photo.jpg",
     "priceJpy": 1200,
     "quantity": 2,
@@ -31,6 +32,6 @@ npm run worker:check
   }]
 }
 ```
-priceJpy 為日幣單價，數量至少 1；id 唯一。新增由網站產生 UUID。清單初始為空。新增必填購買人；舊資料缺少 buyer 時顯示「未指定」。
+priceJpy 為日幣單價，數量至少 1；id 唯一。新增由網站產生 UUID。清單初始為空。新增必填購買人；舊資料缺少 buyer 時顯示「未指定」。備註 note 選填，最多 20 個可見字元（中文與 emoji 各按實際顯示字元計算）；舊資料缺少 note 視為無備註。有備註時可點留言 icon 開啟 dialog，X、空白處與 Esc 都能關閉。
 
 公開 repo 和 Pages 的清單與圖片可被讀取，密碼限制編輯。Session 期限 12 小時，不儲存原始密碼或 GitHub 權杖於瀏覽器。分類標題右側的刷新圖示可重新讀取。刪除需確認品名；版本衝突需重新讀取；JSON 與圖片在同一個 commit 更新。適合小型朋友共用清單。

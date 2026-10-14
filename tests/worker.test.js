@@ -119,3 +119,34 @@ test('concurrent delete failure preserves the original item', async () => {
     const response=await worker.fetch(request('/api/items/sample-1',{method:'DELETE',session,body:{sha:'head1'}}),env);assert.equal(response.status,409);assert.equal(mock.data().items.length,1);
   }finally{globalThis.fetch=original;}
 });
+test('notes persist, participate in safe retry and survive checkoff', async () => {
+  const session=await login(),mock=gitMock(),original=globalThis.fetch;globalThis.fetch=mock.fetcher;
+  const id=crypto.randomUUID();
+  const makeForm=note=>{const form=new FormData();form.set('sha','head1');form.set('item',JSON.stringify({id,buyer:'Doris',location:'東京',name:'眼罩',note,priceJpy:100,quantity:1}));return form;};
+  try {
+    const note='備'.repeat(19)+'🍓';
+    const saved=await worker.fetch(request('/api/items',{method:'POST',session,body:makeForm(' '+note+' ')}),env);assert.equal(saved.status,200);assert.equal(mock.data().items[1].note,note);
+    const commits=mock.calls.filter(c=>c.path==='git/commits').length;
+    const retry=await worker.fetch(request('/api/items',{method:'POST',session,body:makeForm(note)}),env);assert.equal(retry.status,200);assert.equal(mock.calls.filter(c=>c.path==='git/commits').length,commits);
+    const changed=await worker.fetch(request('/api/items',{method:'POST',session,body:makeForm('改買其他款')}),env);assert.equal(changed.status,409);assert.equal(mock.data().items[1].note,note);
+    const checked=await worker.fetch(request('/api/items/'+id,{method:'PATCH',session,body:{sha:'head2',purchased:true}}),env);assert.equal(checked.status,200);assert.equal(mock.data().items[1].note,note);assert.equal(mock.data().items[1].purchased,true);
+  }finally{globalThis.fetch=original;}
+});
+test('invalid or over-limit notes are rejected before reaching GitHub', async () => {
+  const session=await login(),original=globalThis.fetch;let hits=0;globalThis.fetch=async()=>{hits++;throw new Error();};
+  try {
+    for(const note of [null,123,[],{},'備'.repeat(21),'👨‍👩‍👧‍👦'.repeat(21)]) {
+      const form=new FormData();form.set('sha','head1');form.set('item',JSON.stringify({id:crypto.randomUUID(),buyer:'Doris',location:'東京',name:'眼罩',note,priceJpy:100,quantity:1}));
+      const response=await worker.fetch(request('/api/items',{method:'POST',session,body:form}),env);assert.equal(response.status,400);assert.match((await response.json()).error,/20/);
+    }
+    assert.equal(hits,0);
+  }finally{globalThis.fetch=original;}
+});
+test('creating without a note stays compatible with retries of a legacy record', async () => {
+  const id=crypto.randomUUID(),item={id,buyer:'Doris',location:'東京',name:'眼罩',image:'assets/placeholder.svg',priceJpy:100,quantity:1,purchased:false};
+  const session=await login(),mock=gitMock([item]),original=globalThis.fetch;globalThis.fetch=mock.fetcher;
+  try {
+    const form=new FormData();form.set('sha','old');form.set('item',JSON.stringify({...item,note:''}));
+    const response=await worker.fetch(request('/api/items',{method:'POST',session,body:form}),env);assert.equal(response.status,200);assert.equal(mock.calls.some(c=>c.method!=='GET'),false);
+  }finally{globalThis.fetch=original;}
+});

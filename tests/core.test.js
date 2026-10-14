@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiStore, validateData, encodeText, decodeText, buyerName, itemsForBuyer, buyerSummary } from '../site/core.js';
+import { ApiStore, validateData, encodeText, decodeText, buyerName, itemsForBuyer, buyerSummary, noteLength } from '../site/core.js';
 const item = { id: '1', name: '眼罩', location: '藥妝', image: 'assets/a.webp', priceJpy: 800, quantity: 2, purchased: false };
 const data = { version: 1, items: [item] };
 test('UTF-8 JSON round trip preserves Chinese and Japanese', () => assert.equal(decodeText(encodeText('東京・眼罩 🍓')), '東京・眼罩 🍓'));
@@ -41,4 +41,13 @@ test('legacy buyer values are unassigned and new buyer values are validated', ()
   assert.equal(buyerName({ ...item, buyer: ' Doris ' }), 'Doris');
   assert.equal(validateData(data), data);
   for (const buyer of [null, 123, [], 'x'.repeat(81)]) assert.throws(() => validateData({ version: 1, items: [{ ...item, buyer }] }));
+});
+test('notes accept legacy/empty values and count visible characters at the 20-character boundary', () => {
+  for (const note of [undefined, '', '備'.repeat(20), '👨‍👩‍👧‍👦'.repeat(20), 'e\u0301'.repeat(20)]) {
+    assert.doesNotThrow(() => validateData({version:1,items:[{...item,note}]}));
+  }
+  assert.equal(noteLength('中文🍓👨‍👩‍👧‍👦e\u0301'),5);
+  for (const note of [null, 123, [], '備'.repeat(21), '🍓'.repeat(21)]) {
+    assert.throws(() => validateData({version:1,items:[{...item,note}]}),/20/);
+  }
 });

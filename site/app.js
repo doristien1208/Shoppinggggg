@@ -1,11 +1,15 @@
-import { ApiStore, validateData, buyerName, itemsForBuyer, buyerSummary } from './core.js';
+import { ApiStore, validateData, buyerName, itemsForBuyer, buyerSummary, NOTE_LIMIT, noteLength } from './core.js?v=20261014-notes';
 import { API_BASE_URL } from './config.js';
 const $ = id => document.getElementById(id);
 const yen = value => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(value);
 let data = { version: 1, items: [] }, sha, store, busy = false, preview, draftId, deleteTarget, messageTimer;
 const urls = new Map();
 const imageViewer = $('image-viewer');
-let imageBackdropPressed = false;
+const noteDialog = $('note-dialog');
+function openNote(item) {
+  $('note-message').textContent = item.note;
+  noteDialog.showModal(); document.documentElement.classList.add('image-open');
+}
 function openImage(item) {
   const image = $('viewer-image');
   image.alt = item.name; image.dataset.path = item.image; image.hidden = true;
@@ -22,16 +26,30 @@ $('viewer-image').addEventListener('error', () => {
   if (!imageViewer.open) return;
   $('viewer-image').hidden = true; $('viewer-status').textContent = '圖片無法載入，請關閉後再試。'; $('viewer-status').hidden = false;
 });
-imageViewer.addEventListener('pointerdown', event => { imageBackdropPressed = event.target === imageViewer; });
-imageViewer.addEventListener('pointercancel', () => { imageBackdropPressed = false; });
-imageViewer.addEventListener('click', event => {
-  if (imageBackdropPressed && event.target === imageViewer) imageViewer.close();
-  imageBackdropPressed = false;
-});
+for (const dialog of [imageViewer, noteDialog]) {
+  let backdropPressed = false;
+  dialog.addEventListener('pointerdown', event => { backdropPressed = event.target === dialog; });
+  dialog.addEventListener('pointercancel', () => { backdropPressed = false; });
+  dialog.addEventListener('click', event => {
+    if (backdropPressed && event.target === dialog) dialog.close();
+    backdropPressed = false;
+  });
+  dialog.addEventListener('close', () => {
+    backdropPressed = false;
+    if (!imageViewer.open && !noteDialog.open) document.documentElement.classList.remove('image-open');
+  });
+}
 imageViewer.addEventListener('close', () => {
-  document.documentElement.classList.remove('image-open'); imageBackdropPressed = false;
   $('viewer-image').removeAttribute('src'); delete $('viewer-image').dataset.path;
 });
+function updateNoteCount() {
+  const count = noteLength($('note').value.trim());
+  $('note-counter').textContent = `${count} / ${NOTE_LIMIT} 字`;
+  $('note-error').textContent = count > NOTE_LIMIT ? '備註最多 20 個字。' : '';
+  $('note').setAttribute('aria-invalid', String(count > NOTE_LIMIT));
+}
+$('note').addEventListener('input', event => { if (!event.isComposing) updateNoteCount(); });
+$('note').addEventListener('compositionend', updateNoteCount);
 function syncConnection() {
   if (!store?.session) { try { sessionStorage.removeItem('shopping-session'); } catch {} }
   $('connect').textContent = store?.session ? '清單已解鎖' : '解鎖清單';
@@ -91,7 +109,13 @@ function render() {
     const row = node('li', undefined, `item${item.purchased ? ' done' : ''}`);
     const image = node('img'); image.src = urls.get(item.image) || item.image; image.dataset.path = item.image; image.alt = ''; image.loading = 'lazy'; image.addEventListener('error', () => { image.src = 'assets/placeholder.svg'; }, { once: true });
     const thumbnail = node('button', undefined, 'thumbnail'); thumbnail.type = 'button'; thumbnail.disabled = busy; thumbnail.setAttribute('aria-label', `查看大圖：${item.name}`); thumbnail.title = '查看大圖'; thumbnail.append(image); thumbnail.addEventListener('click', () => openImage(item));
-    const info = node('div'); info.append(node('p', item.location), node('p', `購買人：${buyerName(item) || '未指定'}`, 'buyer-name'), node('h3', item.name), node('p', `${yen(item.priceJpy)} × ${item.quantity} 件`), node('p', yen(item.priceJpy * item.quantity), 'amount'));
+    const info = node('div'); info.append(node('p', item.location), node('p', `購買人：${buyerName(item) || '未指定'}`, 'buyer-name'), node('h3', item.name), node('p', `${yen(item.priceJpy)} × ${item.quantity} 件`));
+    const footer = node('div', undefined, 'item-footer'); footer.append(node('p', yen(item.priceJpy * item.quantity), 'amount'));
+    if (item.note?.trim()) {
+      const noteButton = node('button', undefined, 'icon-button note-button'); noteButton.type = 'button'; noteButton.disabled = busy; noteButton.title = '查看備註'; noteButton.setAttribute('aria-label', `查看備註：${item.name}`);
+      const icon = node('span', undefined, 'comment-icon'); icon.setAttribute('aria-hidden', 'true'); noteButton.append(icon); noteButton.addEventListener('click', () => openNote(item)); footer.append(noteButton);
+    }
+    info.append(footer);
     const label = node('label', undefined, 'check'); const checkbox = node('input'); checkbox.type = 'checkbox'; checkbox.checked = item.purchased; checkbox.disabled = busy; checkbox.setAttribute('aria-label', `${item.name}，${item.purchased ? '已購買' : '未購買'}`);
     checkbox.addEventListener('change', async () => {
       if (!store?.session) { checkbox.checked = item.purchased; $('connection').showModal(); return; }
@@ -166,19 +190,21 @@ $('image').addEventListener('change', async () => {
 });
 $('item-form').addEventListener('submit', async event => {
   event.preventDefault(); if (!store?.session || busy) return;
-  const item = { id: draftId, buyer: $('buyer').value.trim(), location: $('location').value.trim(), name: $('name').value.trim(), image: 'assets/placeholder.svg', priceJpy: Number($('price').value), quantity: Number($('quantity').value), purchased: false };
+  const item = { id: draftId, buyer: $('buyer').value.trim(), location: $('location').value.trim(), name: $('name').value.trim(), note: $('note').value.trim(), image: 'assets/placeholder.svg', priceJpy: Number($('price').value), quantity: Number($('quantity').value), purchased: false };
   const fields = ['buyer', 'location', 'name', 'price', 'quantity']; fields.forEach(id => { $(id).removeAttribute('aria-invalid'); $(id).setAttribute('aria-describedby', 'item-error'); });
   const invalid = !item.buyer ? 'buyer' : !item.location ? 'location' : !item.name ? 'name' : !$('price').value || !Number.isSafeInteger(item.priceJpy) || item.priceJpy < 0 ? 'price' : !Number.isSafeInteger(item.quantity) || item.quantity < 1 ? 'quantity' : null;
   if (invalid) { $('item-error').textContent = '請填寫購買人、地點與品名；金額須為非負整數，數量至少 1。'; $(invalid).setAttribute('aria-invalid', 'true'); $(invalid).focus(); return; }
+  updateNoteCount();
+  if (noteLength(item.note) > NOTE_LIMIT) { $('note').focus(); return; }
   lock(true); $('item-error').textContent = ''; message('正在儲存品項…');
   try {
     validateData({ ...data, items: [...data.items.filter(i => i.id !== item.id), item] });
     const image = $('image').files[0] ? await prepareImage($('image').files[0]) : undefined;
     const result = await store.create(item, image, sha); sha = result.sha; data = validateData(result.data); draftId = undefined;
-    $('editor').close(); $('item-form').reset(); $('preview').hidden = true; if (preview) URL.revokeObjectURL(preview); buyerFilter = item.buyer; place = item.location; filter = 'all'; document.querySelector('input[value="all"]').checked = true; stateUrl(); render(); void hydrateImages(); message('品項已儲存。');
+    $('editor').close(); $('item-form').reset(); updateNoteCount(); $('preview').hidden = true; if (preview) URL.revokeObjectURL(preview); buyerFilter = item.buyer; place = item.location; filter = 'all'; document.querySelector('input[value="all"]').checked = true; stateUrl(); render(); void hydrateImages(); message('品項已儲存。');
   } catch (error) { $('item-error').textContent = error.message || '儲存失敗，請重新讀取確認狀態。'; message('儲存未完成，輸入內容已保留。', true); }
   finally { lock(false); syncConnection(); }
 });
 for (const dialog of document.querySelectorAll('dialog')) dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
-window.addEventListener('beforeunload', event => { if (busy || ($('editor').open && ($('buyer').value || $('name').value || $('location').value))) { event.preventDefault(); event.returnValue = ''; } });
+window.addEventListener('beforeunload', event => { if (busy || ($('editor').open && ($('buyer').value || $('name').value || $('location').value || $('note').value))) { event.preventDefault(); event.returnValue = ''; } });
 void load();

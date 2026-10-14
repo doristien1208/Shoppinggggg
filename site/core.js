@@ -1,11 +1,15 @@
 export const REPO = 'doristien1208/Shoppinggggg';
 export const DATA_PATH = 'site/data/items.json';
+export const NOTE_LIMIT = 20;
+const noteSegmenter = new Intl.Segmenter('zh-Hant', { granularity: 'grapheme' });
+export const noteLength = value => [...noteSegmenter.segment(value)].length;
 export function validateData(data) {
   if (data?.version !== 1 || !Array.isArray(data.items)) throw new Error('清單格式不正確，需要 version: 1 與 items 陣列。');
   const ids = new Set();
   for (const item of data.items) {
     if (!item || typeof item.id !== 'string' || !item.id || ids.has(item.id) || typeof item.location !== 'string' || !item.location.trim() || typeof item.name !== 'string' || !item.name.trim() || !Number.isSafeInteger(item.priceJpy) || item.priceJpy < 0 || !Number.isSafeInteger(item.quantity) || item.quantity < 1 || !Number.isSafeInteger(item.priceJpy * item.quantity) || typeof item.purchased !== 'boolean' || typeof item.image !== 'string' || !/^assets\/[a-zA-Z0-9._-]+$/.test(item.image)) throw new Error('品項資料不正確：請檢查名稱、地點、整數金額、數量、圖片路徑與唯一 ID。');
     if (item.buyer !== undefined && (typeof item.buyer !== 'string' || item.buyer.length > 80)) throw new Error('購買人須為 80 個字元以內的名稱。');
+    if (item.note !== undefined && (typeof item.note !== 'string' || noteLength(item.note) > NOTE_LIMIT)) throw new Error('備註最多 20 個字。');
     ids.add(item.id);
   }
   if (!Number.isSafeInteger(data.items.reduce((sum, i) => sum + i.priceJpy * i.quantity, 0))) throw new Error('清單總額超過可計算範圍。');

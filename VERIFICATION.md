@@ -33,3 +33,11 @@
 - JavaScript syntax checks, all 17 existing tests and Worker dry run pass. Strict UI audit has 0 findings; design lint has 0 errors and the four existing unused-token warnings.
 - Frontend asset query versions updated to avoid stale CSS/JS after Pages deployment.
 - Follow-up: dialog now hugs the image, with a 44px circular X inset 8px from its top-right corner. At 390×844 the dialog and image both measure 358×358; at 1280×800 both measure 768×768. Browser verified image clicks stay open and backdrop/X/Escape still close and restore thumbnail focus.
+
+## Notes — 2026-10-14
+- Optional JSON `note` supports legacy records and empty strings. Frontend and Worker enforce a maximum of 20 visible characters, counting grapheme clusters including combined emoji.
+- 21 tests pass: exact boundary and Unicode counting, invalid type/over-limit rejection before GitHub access, note persistence and checkoff preservation, note-aware idempotent retries and legacy compatibility.
+- Syntax and Worker dry run pass; strict UI audit has 0 findings.
+- Browser fixture using the real Worker with a mocked GitHub backend confirmed the 21-character inline error and blocked save, 20-character Chinese/emoji save, updated note icon, correct dialog content and persistence after reload.
+- At 390px, note dialog and list have no horizontal overflow. X/backdrop/Escape dismiss, clicking note content stays open, focus returns to the icon, and image preview continues working. No production shopping data was written by the fixture.
+- Uses the user's `site/assets/comment.svg` as a current-color mask beside the item total. Missing/blank notes show no icon.
