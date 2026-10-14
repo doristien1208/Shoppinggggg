@@ -1,2 +1,2 @@
-// Set this once after deploying the Cloudflare Worker. This is a public URL, never a secret.
-export const API_BASE_URL = '';
+// Public Cloudflare Worker endpoint; secrets remain on the server.
+export const API_BASE_URL = 'https://shoppinggggg-api.doristien1208.workers.dev';
